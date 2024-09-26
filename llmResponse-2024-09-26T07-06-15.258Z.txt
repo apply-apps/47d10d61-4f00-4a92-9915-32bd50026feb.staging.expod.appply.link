@@ -1,0 +1,171 @@
+```js
+// App.js
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, TextInput } from 'react-native';
+import { Audio } from 'expo-av';
+import { LinearGradient } from 'expo-linear-gradient';
+import axios from 'axios';
+
+const API_URL = 'http://apihub.p.appply.xyz:3300/chatgpt';
+
+const languages = ['English', 'German', 'Italian', 'French', 'Mandarin', 'Russian', 'Arabic'];
+
+const App = () => {
+  const [recording, setRecording] = useState();
+  const [isRecording, setIsRecording] = useState(false);
+  const [transcription, setTranscription] = useState('');
+  const [selectedLanguage, setSelectedLanguage] = useState('English');
+
+  useEffect(() => {
+    return () => {
+      if (recording) {
+        stopRecording();
+      }
+    };
+  }, []);
+
+  async function startRecording() {
+    try {
+      await Audio.requestPermissionsAsync();
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+      });
+
+      const { recording } = await Audio.Recording.createAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
+      setRecording(recording);
+      setIsRecording(true);
+    } catch (err) {
+      console.error('Failed to start recording', err);
+    }
+  }
+
+  async function stopRecording() {
+    setRecording(undefined);
+    setIsRecording(false);
+    await recording.stopAndUnloadAsync();
+    await Audio.setAudioModeAsync({
+      allowsRecordingIOS: false,
+    });
+    const uri = recording.getURI();
+    console.log('Recording stopped and stored at', uri);
+    transcribeAudio(uri);
+  }
+
+  async function transcribeAudio(audioUri) {
+    // In a real app, you would send the audio file to a transcription service here.
+    // For this example, we'll simulate transcription with a placeholder text.
+    const placeholderText = "This is a simulated transcription. In a real app, you would send the audio to a transcription service and receive the text here.";
+    
+    try {
+      const response = await axios.post(API_URL, {
+        messages: [
+          { role: "system", content: `You are a helpful assistant that transcribes audio to text in ${selectedLanguage}.` },
+          { role: "user", content: `Transcribe the following audio file: ${audioUri}` }
+        ],
+        model: "gpt-4o"
+      });
+      const { data } = response;
+      setTranscription(data.response || placeholderText);
+    } catch (error) {
+      console.error('Error in transcription:', error);
+      setTranscription(placeholderText);
+    }
+  }
+
+  return (
+    <LinearGradient
+      colors={['#00ff87', '#60efff', '#00ff87']}
+      style={styles.container}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+    >
+      <View style={styles.content}>
+        <TouchableOpacity
+          style={[styles.button, isRecording && styles.recordingButton]}
+          onPressIn={startRecording}
+          onPressOut={stopRecording}
+        >
+          <Text style={styles.buttonText}>{isRecording ? 'Recording...' : 'Hold to Record'}</Text>
+        </TouchableOpacity>
+
+        <View style={styles.languageSelector}>
+          {languages.map((lang) => (
+            <TouchableOpacity
+              key={lang}
+              style={[styles.langButton, selectedLanguage === lang && styles.selectedLang]}
+              onPress={() => setSelectedLanguage(lang)}
+            >
+              <Text style={styles.langButtonText}>{lang}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <TextInput
+          style={styles.transcription}
+          multiline
+          value={transcription}
+          onChangeText={setTranscription}
+          placeholder="Transcription will appear here..."
+          placeholderTextColor="#666"
+        />
+      </View>
+    </LinearGradient>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  content: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  button: {
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    padding: 20,
+    borderRadius: 50,
+    marginBottom: 20,
+  },
+  recordingButton: {
+    backgroundColor: 'rgba(255,0,0,0.3)',
+  },
+  buttonText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  languageSelector: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  langButton: {
+    padding: 10,
+    margin: 5,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 20,
+  },
+  selectedLang: {
+    backgroundColor: 'rgba(255,255,255,0.5)',
+  },
+  langButtonText: {
+    color: 'white',
+  },
+  transcription: {
+    backgroundColor: 'rgba(255,255,255,0.8)',
+    padding: 20,
+    borderRadius: 10,
+    width: '100%',
+    height: 200,
+    textAlignVertical: 'top',
+  },
+});
+
+export default App;
+// End of App.js
+```
